@@ -6,6 +6,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
@@ -30,14 +31,15 @@ public class DigitalDiaryUI {
     private ImageView coverImageView;
     private TextField searchField;
     private ComboBox<String> moodComboBox;
+    private Label motivationalQuoteLabel;
     private Button saveEditButton;
-    private Button uploadButton;
 
     // Keep track of the chosen image file (to store path)
     private File chosenImageFile = null;
 
     // In-memory list of diaries for the logged-in user
     private List<DiaryEntry> diaryEntries;
+    private DiaryEntry currentEditingEntry = null; // Track the entry being edited
 
     public DigitalDiaryUI(Stage primaryStage, User user) {
         this.primaryStage = primaryStage;
@@ -70,28 +72,49 @@ public class DigitalDiaryUI {
         moodComboBox.getItems().addAll("Happy", "Sad", "Excited", "Angry", "Neutral");
         moodComboBox.setValue("Neutral");
 
-        Button saveButton = new Button("Save New Diary Entry");
+        // Label to display motivational quotes
+        motivationalQuoteLabel = new Label();
+        motivationalQuoteLabel.setWrapText(true); // Allows multi-line text
+
+        // Update quote when mood changes
+        moodComboBox.valueProperty().addListener((obs, oldVal, newVal) -> {
+            String quote = MotivationalQuotes.getMotivationalQuote(newVal);
+            motivationalQuoteLabel.setText(quote);
+        });
+
+        HBox moodAndQuoteBox = new HBox(10, new Label("Mood:"), moodComboBox, motivationalQuoteLabel);
+        moodAndQuoteBox.setSpacing(10);
+
+        Button saveButton = new Button("Save Diary Entry");
         Button editButton = new Button("Edit Diary Entry");
-        Button deleteButton = new Button("Delete Diary Entry");
-
         saveEditButton = new Button("Save Changes");
-        saveEditButton.setVisible(false); // Initially hidden
-        saveEditButton.setOnAction(e -> saveEditedDiaryEntry(diaryListView.getSelectionModel().getSelectedItem()));
+        saveEditButton.setDisable(true); // Initially disabled
 
-        uploadButton = new Button("Upload Cover Image");
-        uploadButton.setOnAction(e -> uploadCoverImage());
+        Button deleteButton = new Button("Delete Diary Entry");
+        Button uploadButton = new Button("Upload Cover Image");
+        Button sortButton = new Button("Sort by Date");
+        Button pdfExportButton = new Button("Export to PDF");
+        Button logoutButton = new Button("Logout");
 
         saveButton.setOnAction(e -> saveDiaryEntry());
         editButton.setOnAction(e -> editDiaryEntry());
+        saveEditButton.setOnAction(e -> saveEditedDiaryEntry());
         deleteButton.setOnAction(e -> deleteDiaryEntry());
+        uploadButton.setOnAction(e -> uploadCoverImage());
+        sortButton.setOnAction(e -> sortDiariesByDate());
+        pdfExportButton.setOnAction(e -> exportToPDF());
+        logoutButton.setOnAction(e -> logout());
+
+        HBox editControls = new HBox(10, editButton, saveEditButton);
 
         VBox root = new VBox(10,
                 new Label("Title:"), titleField,
                 new Label("Content:"), contentArea,
-                new Label("Mood:"), moodComboBox,
+                moodAndQuoteBox,
                 uploadButton, coverImageView,
-                saveButton, editButton, deleteButton, saveEditButton,
-                searchField, diaryListView
+                new Label("Diary Entries:"), searchField, diaryListView,
+                saveButton, editControls, deleteButton, sortButton, pdfExportButton,
+                logoutButton
         );
         root.setPadding(new Insets(20));
 
@@ -140,21 +163,25 @@ public class DigitalDiaryUI {
             return;
         }
 
-        // Populate fields with the selected entry's data
+        // Populate the fields with the selected entry's data
         titleField.setText(selectedEntry.getTitle());
         contentArea.setText(selectedEntry.getContent());
         moodComboBox.setValue(selectedEntry.getMood());
         coverImageView.setImage(selectedEntry.getCoverImage());
 
-        chosenImageFile = (selectedEntry.getImagePath() != null && !selectedEntry.getImagePath().isEmpty())
-                ? new File(selectedEntry.getImagePath())
-                : null;
+        // Keep the entry in the list while editing
+        currentEditingEntry = selectedEntry;
 
-        // Show the Save Changes button
-        saveEditButton.setVisible(true);
+        // Enable the save changes button
+        saveEditButton.setDisable(false);
     }
 
-    private void saveEditedDiaryEntry(DiaryEntry selectedEntry) {
+    private void saveEditedDiaryEntry() {
+        if (currentEditingEntry == null) {
+            showAlert(Alert.AlertType.WARNING, "No Editing", "No diary entry is currently being edited.");
+            return;
+        }
+
         String newTitle = titleField.getText().trim();
         String newContent = contentArea.getText().trim();
         String newMood = moodComboBox.getValue();
@@ -166,26 +193,25 @@ public class DigitalDiaryUI {
         }
 
         // Update the selected entry's properties
-        selectedEntry.setTitle(newTitle);
-        selectedEntry.setContent(newContent);
-        selectedEntry.setMood(newMood);
-        selectedEntry.setCoverImage(newCoverImg);
+        currentEditingEntry.setTitle(newTitle);
+        currentEditingEntry.setContent(newContent);
+        currentEditingEntry.setMood(newMood);
+        currentEditingEntry.setCoverImage(newCoverImg);
 
         if (chosenImageFile != null) {
-            selectedEntry.setImagePath(chosenImageFile.getAbsolutePath());
+            currentEditingEntry.setImagePath(chosenImageFile.getAbsolutePath());
         }
 
         // Refresh the ListView to reflect changes
         diaryListView.refresh();
 
         // Update the entry in the CSV file
-        DiaryManager.updateDiaryEntry(selectedEntry, selectedEntry);
+        DiaryManager.updateDiaryEntry(currentEditingEntry, currentEditingEntry);
 
-        // Clear inputs
+        // Clear inputs and disable save button
         clearInputs();
-
-        // Hide the Save Changes button
-        saveEditButton.setVisible(false);
+        saveEditButton.setDisable(true);
+        currentEditingEntry = null;
     }
 
     private void deleteDiaryEntry() {
@@ -213,6 +239,11 @@ public class DigitalDiaryUI {
         }
     }
 
+    private void sortDiariesByDate() {
+        diaryEntries.sort(Comparator.comparing(DiaryEntry::getCreatedDate).reversed());
+        diaryListView.getItems().setAll(diaryEntries);
+    }
+
     private void filterDiaryList(String query) {
         String lowerQuery = query.toLowerCase();
 
@@ -226,11 +257,21 @@ public class DigitalDiaryUI {
         diaryListView.getItems().setAll(filtered);
     }
 
-    private void showAlert(Alert.AlertType type, String title, String message) {
-        Alert alert = new Alert(type);
-        alert.setTitle(title);
-        alert.setContentText(message);
-        alert.showAndWait();
+    private void exportToPDF() {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Save PDF");
+        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("PDF Files", "*.pdf"));
+        File outFile = fileChooser.showSaveDialog(primaryStage);
+
+        if (outFile != null) {
+            PdfExporter.exportEntriesToPDF(diaryListView.getItems(), outFile);
+            showAlert(Alert.AlertType.INFORMATION, "PDF Exported", "Diaries exported to PDF successfully!");
+        }
+    }
+
+    private void logout() {
+        LoginUI loginUI = new LoginUI(primaryStage);
+        loginUI.showLoginScene();
     }
 
     private void clearInputs() {
@@ -239,6 +280,13 @@ public class DigitalDiaryUI {
         moodComboBox.setValue("Neutral");
         coverImageView.setImage(null);
         chosenImageFile = null;
+    }
+
+    private void showAlert(Alert.AlertType type, String title, String message) {
+        Alert alert = new Alert(type);
+        alert.setTitle(title);
+        alert.setContentText(message);
+        alert.showAndWait();
     }
 
     // ListCell to display some details about each entry
@@ -250,9 +298,7 @@ public class DigitalDiaryUI {
                 setText(null);
                 setGraphic(null);
             } else {
-                // Show title, date, and mood
-                setText(entry.getTitle() + " (" + entry.getCreatedDate().toLocalDate()
-                        + ") - " + entry.getMood());
+                setText(entry.getTitle() + " (" + entry.getCreatedDate().toLocalDate() + ") - " + entry.getMood());
             }
         }
     }
