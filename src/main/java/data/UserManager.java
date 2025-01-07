@@ -4,6 +4,7 @@ import model.User;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.mindrot.jbcrypt.BCrypt;
 
 public class UserManager {
     private static final String USERS_FILE = "users.csv";
@@ -24,7 +25,7 @@ public class UserManager {
     public static void saveUsers(List<User> userList) {
         List<String> lines = new ArrayList<>();
         for (User user : userList) {
-            lines.add(user.getUsername() + "," + user.getEmail() + "," + user.getPassword());
+            lines.add(user.getUsername() + "," + user.getEmail() + "," + BCrypt.hashpw(user.getPassword(), BCrypt.gensalt()));
         }
         FileUtilities.writeAllLines(USERS_FILE, lines);
     }
@@ -53,7 +54,8 @@ public class UserManager {
             // Let them login with either username or email
             boolean matchUsername = u.getUsername().equalsIgnoreCase(usernameOrEmail);
             boolean matchEmail = u.getEmail().equalsIgnoreCase(usernameOrEmail);
-            if ((matchUsername || matchEmail) && u.getPassword().equals(password)) {
+            boolean isPasswordValid = BCrypt.checkpw(password, u.getPassword());
+            if ((matchUsername || matchEmail) && isPasswordValid) {
                 return u; // success
             }
         }
