@@ -5,6 +5,7 @@ import org.mindrot.jbcrypt.BCrypt;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 
 public class UserManager {
@@ -18,22 +19,21 @@ public class UserManager {
             // Format: username,email,passwordHash
             String[] parts = line.split(",");
             if (parts.length == 3) {
-                userIndex.put(parts[0], parts[2]); // username → hashedPassword
-                userIndex.put(parts[1], parts[2]); // email → hashedPassword
+                userIndex.put(parts[0], parts[2]); // username and hashedPassword
+                userIndex.put(parts[1], parts[2]); // email and hashedPassword
             }
         }
     }
-
     public static void saveUsers() {
         List<String> lines = new ArrayList<>();
-        HashMap<String, String> uniqueUsers = new HashMap<>();
+        HashSet<String> processedPasswords = new HashSet<>();
 
-        // Ensure no duplicate entries (e.g., username and email pointing to the same hash)
         for (String key : userIndex.keySet()) {
             String hashedPassword = userIndex.get(key);
-            if (!uniqueUsers.containsValue(hashedPassword)) {
-                uniqueUsers.put(key, hashedPassword);
-                lines.add(key + "," + key + "," + hashedPassword); // Simplified for unique usernames/emails
+            // Save only one row per unique hashed password
+            if (!processedPasswords.contains(hashedPassword)) {
+                lines.add(key + "," + key + "," + hashedPassword); // Assume key as username/email for simplicity
+                processedPasswords.add(hashedPassword); // Mark this password as processed
             }
         }
 
@@ -49,14 +49,14 @@ public class UserManager {
         userIndex.put(username, hashedPassword);
         userIndex.put(email, hashedPassword);
 
-        saveUsers(); // Persist to CSV
+        saveUsers(); // Register the new user to the CSV file
         return true;
     }
 
     public static User loginUser(String usernameOrEmail, String password) {
         String hashedPassword = userIndex.get(usernameOrEmail);
         if (hashedPassword != null && BCrypt.checkpw(password, hashedPassword)) {
-            return new User(usernameOrEmail, usernameOrEmail, null); // Do not return the plain password
+            return new User(usernameOrEmail, usernameOrEmail, null); // Does not return the plain password
         }
         return null; // Login failed
     }
