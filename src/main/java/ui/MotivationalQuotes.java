@@ -3,6 +3,7 @@ package ui;
 import java.util.List;
 import java.util.Random;
 
+//use two arrays to randomize the list
 public class MotivationalQuotes {
     private static final String[] moods = {"sad", "happy", "excited", "neutral", "angry"};
     private static final List<String>[] quotes = new List[]{
