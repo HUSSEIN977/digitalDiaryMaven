@@ -3,7 +3,7 @@ package model;
 public class User {
     protected String username;
     protected String email;
-    protected String password; // In real apps, store a hashed password!
+    protected String password;
 
     public User(String username, String email, String password) {
         this.username = username;
