@@ -1,36 +1,42 @@
 package data;
 
 import model.User;
-import java.util.ArrayList;
-import java.util.List;
 import org.mindrot.jbcrypt.BCrypt;
+
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 public class UserManager {
     private static final String USERS_FILE = "users.csv";
     private static HashMap<String, String> userIndex = new HashMap<>();
-
-    public static List<User> loadUsers() {
-        List<User> userList = new ArrayList<>();
+    public static void loadUsers() {
         List<String> lines = FileUtilities.readAllLines(USERS_FILE);
+        userIndex.clear(); // Clear existing data to avoid duplication
+
         for (String line : lines) {
-            // Format: username,email,password
+            // Format: username,email,passwordHash
             String[] parts = line.split(",");
             if (parts.length == 3) {
-                userIndex.put(parts[0], parts[2]);
-                userIndex.put(parts[1], parts[2]);
-               }
+                userIndex.put(parts[0], parts[2]); // username → hashedPassword
+                userIndex.put(parts[1], parts[2]); // email → hashedPassword
             }
-        return userList;
+        }
     }
 
-    public static void saveUsers(List<User> userList) {
+    public static void saveUsers() {
         List<String> lines = new ArrayList<>();
-        for (User user : userList) {
-            lines.add(user.getUsername() + "," + user.getEmail() + "," + BCrypt.hashpw(user.getPassword(), BCrypt.gensalt()));
-            userIndex.put(user.getUsername(),user.getPassword());
-            userIndex.put(user.getEmail(),user.getPassword());
+        HashMap<String, String> uniqueUsers = new HashMap<>();
+
+        // Ensure no duplicate entries (e.g., username and email pointing to the same hash)
+        for (String key : userIndex.keySet()) {
+            String hashedPassword = userIndex.get(key);
+            if (!uniqueUsers.containsValue(hashedPassword)) {
+                uniqueUsers.put(key, hashedPassword);
+                lines.add(key + "," + key + "," + hashedPassword); // Simplified for unique usernames/emails
+            }
         }
+
         FileUtilities.writeAllLines(USERS_FILE, lines);
     }
 
@@ -39,18 +45,19 @@ public class UserManager {
             return false; // Username or email already exists
         }
 
-        userIndex.put(username, password);
-        userIndex.put(email, password);
+        String hashedPassword = BCrypt.hashpw(password, BCrypt.gensalt());
+        userIndex.put(username, hashedPassword);
+        userIndex.put(email, hashedPassword);
 
-        saveUsers(List.of(new User(username, email, password))); // Update CSV
+        saveUsers(); // Persist to CSV
         return true;
     }
+
     public static User loginUser(String usernameOrEmail, String password) {
         String hashedPassword = userIndex.get(usernameOrEmail);
         if (hashedPassword != null && BCrypt.checkpw(password, hashedPassword)) {
-            return new User(usernameOrEmail, usernameOrEmail, password);
+            return new User(usernameOrEmail, usernameOrEmail, null); // Do not return the plain password
         }
         return null; // Login failed
     }
-
 }
