@@ -2,15 +2,11 @@ package data;
 
 import model.User;
 import org.mindrot.jbcrypt.BCrypt;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
+import java.util.*;
 
 public class UserManager {
-    private static final String USERS_FILE = "users.csv";
-    private static HashMap<String, String> userIndex = new HashMap<>();
+    protected static final String USERS_FILE = "users.csv";
+    protected static HashMap<String, String> userIndex = new HashMap<>();
     public static void loadUsers() {
         List<String> lines = FileUtilities.readAllLines(USERS_FILE);
         userIndex.clear();
