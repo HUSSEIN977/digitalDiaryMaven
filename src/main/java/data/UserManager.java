@@ -13,14 +13,14 @@ public class UserManager {
     private static HashMap<String, String> userIndex = new HashMap<>();
     public static void loadUsers() {
         List<String> lines = FileUtilities.readAllLines(USERS_FILE);
-        userIndex.clear(); // Clear existing data to avoid duplication
+        userIndex.clear();
 
         for (String line : lines) {
-            // Format: username,email,passwordHash
+            // Format: username,email,hashed password
             String[] parts = line.split(",");
             if (parts.length == 3) {
-                userIndex.put(parts[0], parts[2]); // username and hashedPassword
-                userIndex.put(parts[1], parts[2]); // email and hashedPassword
+                userIndex.put(parts[0], parts[2]); // username and hashed password
+                userIndex.put(parts[1], parts[2]); // email and hashed password
             }
         }
     }
@@ -32,7 +32,7 @@ public class UserManager {
             String hashedPassword = userIndex.get(key);
             // Save only one row per unique hashed password
             if (!processedPasswords.contains(hashedPassword)) {
-                lines.add(key + "," + key + "," + hashedPassword); // Assume key as username/email for simplicity
+                lines.add(key + "," + key + "," + hashedPassword); // Assume key as username or email for simplicity
                 processedPasswords.add(hashedPassword); // Mark this password as processed
             }
         }

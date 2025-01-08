@@ -52,23 +52,7 @@ public class MoodTrendUI {
 
         // Mood trend chart
         CategoryAxis xAxis = new CategoryAxis();
-        NumberAxis yAxis = new NumberAxis(1, 5, 1); // Mood scale
-        yAxis.setTickLabelFormatter(new NumberAxis.DefaultFormatter(yAxis) {
-            @Override
-            public String toString(Number value) {
-                switch (value.intValue()) {
-                    case 1: return "Angry";
-                    case 2: return "Sad";
-                    case 3: return "Neutral";
-                    case 4: return "Happy";
-                    case 5: return "Excited";
-                    default: return "";
-                }
-            }
-        });
-
-        // Add padding for y-axis labels to prevent overlap
-        yAxis.setTickLabelGap(10);
+        NumberAxis yAxis = getNumberAxis();
 
         lineChart = new LineChart<>(xAxis, yAxis); // Initialize the LineChart
         lineChart.setTitle("Mood Trend Over Time");
@@ -87,6 +71,26 @@ public class MoodTrendUI {
         primaryStage.show();
     }
 
+    private static NumberAxis getNumberAxis() {
+        NumberAxis yAxis = new NumberAxis(1, 5, 1); // Mood scale
+        yAxis.setTickLabelFormatter(new NumberAxis.DefaultFormatter(yAxis) {
+            @Override
+            public String toString(Number value) {
+                return switch (value.intValue()) {
+                    case 1 -> "Angry";
+                    case 2 -> "Sad";
+                    case 3 -> "Neutral";
+                    case 4 -> "Happy";
+                    case 5 -> "Excited";
+                    default -> "";
+                };
+            }
+        });
+
+        yAxis.setTickLabelGap(10);
+        return yAxis;
+    }
+
     private void updateChart(List<DiaryEntry> diaryEntries, LocalDate startDate, LocalDate endDate) {
         // Filter entries based on selected dates
         List<DiaryEntry> filteredEntries = diaryEntries.stream()
@@ -98,7 +102,7 @@ public class MoodTrendUI {
                 .collect(Collectors.toList());
 
         // Aggregate moods by date
-        Map<LocalDate, String> aggregatedMoods = aggregateMoodsByDate(filteredEntries);
+        Map<LocalDate, String> moodsByDate = SortedMoodsByDate(filteredEntries);
 
         // Clear and prepare the chart data
         lineChart.getData().clear();
@@ -107,16 +111,16 @@ public class MoodTrendUI {
         series.setName("Mood Trend");
 
         DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-        for (Map.Entry<LocalDate, String> entry : aggregatedMoods.entrySet()) {
+        for (Map.Entry<LocalDate, String> entry : moodsByDate.entrySet()) {
             String date = entry.getKey().format(dateFormatter);
-            int moodValue = mapMoodToValue(entry.getValue());
+            int moodValue = moodMapper(entry.getValue());
             series.getData().add(new XYChart.Data<>(date, moodValue));
         }
 
         lineChart.getData().add(series);
     }
 
-    private Map<LocalDate, String> aggregateMoodsByDate(List<DiaryEntry> entries) {
+    private Map<LocalDate, String> SortedMoodsByDate(List<DiaryEntry> entries) {
         Map<LocalDate, List<String>> moodsByDate = new HashMap<>();
 
         for (DiaryEntry entry : entries) {
@@ -139,7 +143,7 @@ public class MoodTrendUI {
                         if (countComparison != 0) return countComparison;
 
                         // If counts are equal, use mood hierarchy
-                        return Integer.compare(mapMoodToValue(e1.getKey()), mapMoodToValue(e2.getKey()));
+                        return Integer.compare(moodMapper(e1.getKey()), moodMapper(e2.getKey()));
                     })
                     .get()
                     .getKey();
@@ -150,14 +154,14 @@ public class MoodTrendUI {
         return aggregatedMoods;
     }
 
-    private int mapMoodToValue(String mood) {
-        switch (mood.toLowerCase()) {
-            case "angry": return 1;
-            case "sad": return 2;
-            case "neutral": return 3;
-            case "happy": return 4;
-            case "excited": return 5;
-            default: return 0;
-        }
+    private int moodMapper(String mood) {
+        return switch (mood.toLowerCase()) {
+            case "angry" -> 1;
+            case "sad" -> 2;
+            case "neutral" -> 3;
+            case "happy" -> 4;
+            case "excited" -> 5;
+            default -> 0;
+        };
     }
 }
